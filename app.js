@@ -1,27 +1,26 @@
 /////// app.js
 
 const express = require("express");
-const path = require("path");
 const session = require("express-session");
 const passport = require("passport");
 const LocalStrategy = require("passport-local").Strategy;
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
-require('dotenv').config()
-bcrypt = require('bcryptjs')
-const MongoDBStore = require('connect-mongodb-session')(session)
+require("dotenv").config();
+const bcrypt = require("bcryptjs");
+const MongoDBStore = require("connect-mongodb-session")(session);
 
 var store = new MongoDBStore({
   uri: process.env.MONGO_URI,
-  collection: 'mySessions'
+  collection: "mySessions",
 });
 
 // Catch errors
-store.on('error', function (error) {
+store.on("error", function (error) {
   console.log(error);
 });
 
-const mongoDb = process.env.MONGO_URI
+const mongoDb = process.env.MONGO_URI;
 mongoose.connect(mongoDb);
 const db = mongoose.connection;
 db.on("error", console.error.bind(console, "mongo connection error"));
@@ -30,7 +29,7 @@ const User = mongoose.model(
   "User",
   new Schema({
     username: { type: String, required: true },
-    password: { type: String, required: true }
+    password: { type: String, required: true },
   })
 );
 
@@ -38,10 +37,14 @@ const app = express();
 app.set("views", __dirname);
 app.set("view engine", "ejs");
 
-app.use(session({
-  secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true,
-  store: store
-}))
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    store: store,
+  })
+);
 passport.use(
   new LocalStrategy((username, password, done) => {
     User.findOne({ username: username }, (err, user) => {
@@ -53,11 +56,11 @@ passport.use(
       }
       bcrypt.compare(password, user.password, (err, result) => {
         if (result) {
-          return done(null, user)
+          return done(null, user);
         } else {
-          return done(null, false, { message: "Incorrect password" })
+          return done(null, false, { message: "Incorrect password" });
         }
-      })
+      });
       // return done(null, user);
     });
   })
@@ -81,54 +84,57 @@ app.use(function (req, res, next) {
 const authMiddleware = (req, res, next) => {
   if (!req.user) {
     if (!req.session.messages) {
-      req.session.messages = []
+      req.session.messages = [];
     }
-    req.session.messages.push("You can't access that page before logon.")
-    res.redirect('/')
+    req.session.messages.push("You can't access that page before logon.");
+    res.redirect("/");
   } else {
-    next()
+    next();
   }
-}
+};
 app.get("/", (req, res) => {
-  let messages = []
+  let messages = [];
   if (req.session.messages) {
-    messages = req.session.messages
-    req.session.messages = []
+    messages = req.session.messages;
+    req.session.messages = [];
   }
   res.render("index", { messages });
 });
 app.get("/sign-up", (req, res) => res.render("sign-up-form"));
 app.post("/sign-up", async (req, res, next) => {
   try {
-    hashedPassword = await bcrypt.hash(req.body.password, 10)
-    await User.create({ username: req.body.username, password: hashedPassword })
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    await User.create({
+      username: req.body.username,
+      password: hashedPassword,
+    });
     res.redirect("/");
   } catch (err) {
-    return next(err)
+    return next(err);
   }
 });
 
-app.get('/restricted', authMiddleware, (req, res) => {
+app.get("/restricted", authMiddleware, (req, res) => {
   if (!req.session.pageCount) {
-    req.session.pageCount = 1
+    req.session.pageCount = 1;
   } else {
-    req.session.pageCount++
+    req.session.pageCount++;
   }
-  res.render('restricted', { pageCount: req.session.pageCount })
-})
+  res.render("restricted", { pageCount: req.session.pageCount });
+});
 
 app.post(
   "/log-in",
   passport.authenticate("local", {
     successRedirect: "/",
     failureRedirect: "/",
-    failureMessage: true
+    failureMessage: true,
   })
 );
 app.get("/log-out", (req, res) => {
   req.session.destroy(function (err) {
-    res.redirect("/")
-  })
+    res.redirect("/");
+  });
 });
 
 app.listen(3000, () => console.log("app listening on port 3000!"));
