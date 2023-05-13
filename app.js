@@ -1,11 +1,12 @@
 /////// app.js
-
+let secretString = "Beginning value";
 const express = require("express");
 const session = require("express-session");
 const passport = require("passport");
 const LocalStrategy = require("passport-local").Strategy;
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
+const csrf = require('host-csrf')
 require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const MongoDBStore = require("connect-mongodb-session")(session);
@@ -45,6 +46,15 @@ app.use(
     store: store,
   })
 );
+app.use(require('cookie-parser')("notverysecret"))
+let csrf_development_mode = true;
+if (app.get("env") === "production") {
+  csrf_development_mode = false;
+  app.set("trust proxy", 1);
+}
+const csrf_options = {
+  development_mode: csrf_development_mode,
+};
 passport.use(
   new LocalStrategy((username, password, done) => {
     User.findOne({ username: username }, (err, user) => {
@@ -77,10 +87,12 @@ passport.deserializeUser(function (id, done) {
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.urlencoded({ extended: false }));
+app.use(csrf(csrf_options));
 app.use(function (req, res, next) {
   res.locals.currentUser = req.user;
   next();
 });
+
 const authMiddleware = (req, res, next) => {
   if (!req.user) {
     if (!req.session.messages) {
@@ -120,11 +132,12 @@ app.get("/restricted", authMiddleware, (req, res) => {
   } else {
     req.session.pageCount++;
   }
-  res.render("restricted", { pageCount: req.session.pageCount });
+  res.render('restricted', { pageCount: req.session.pageCount, 
+    secretString });
 });
 
 app.post(
-  "/log-in",
+  "/log-in", 
   passport.authenticate("local", {
     successRedirect: "/",
     failureRedirect: "/",
@@ -136,5 +149,10 @@ app.get("/log-out", (req, res) => {
     res.redirect("/");
   });
 });
+
+app.post('/restricted', authMiddleware, (req,res) => {
+  secretString = req.body.secretString;
+  res.redirect('/restricted');
+})
 
 app.listen(3000, () => console.log("app listening on port 3000!"));
