@@ -46,7 +46,7 @@ app.use(
     store: store,
   })
 );
-app.use(require('cookie-parser')("notverysecret"))
+app.use(require('cookie-parser')(process.env.SESSION_SECRET))
 let csrf_development_mode = true;
 if (app.get("env") === "production") {
   csrf_development_mode = false;
